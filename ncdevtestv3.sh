@@ -53,14 +53,22 @@ echo "[5/6] Building Nockchain project..."
 make build-hoon-all
 make build
 
-### 6. Launch Leader & Follower with your Wallet Pubkey
-echo "[6/6] Launching Nockchain Leader & Follower in tmux using your wallet public key..."
+### 6. Launch Leader & Follower in tmux with your wallet public key
+echo "[6/6] Launching Nockchain Leader & Follower in tmux..."
 
-# Leader Node
+# Kill any previous tmux sessions
 tmux kill-session -t nock-leader 2>/dev/null || true
+tmux kill-session -t nock-follower 2>/dev/null || true
+
+# Clean old sockets/state
+rm -f "$PROJECT_DIR/nockchain.sock"
+rm -rf "$PROJECT_DIR/.data.nockchain"
+
+# Launch Leader
 tmux new-session -d -s nock-leader "cd $PROJECT_DIR && ./target/release/nockchain \
   --fakenet \
   --genesis-leader \
+  --mine \
   --mining-pubkey $PUBKEY \
   --npc-socket nockchain.sock \
   --bind /ip4/0.0.0.0/udp/$LEADER_PORT/quic-v1 \
@@ -68,20 +76,16 @@ tmux new-session -d -s nock-leader "cd $PROJECT_DIR && ./target/release/nockchai
   --new-peer-id \
   --no-default-peers | tee leader.log"
 
-# Follower Node
-tmux kill-session -t nock-follower 2>/dev/null || true
+# Wait a few seconds to ensure leader starts first
+sleep 5
+
+# Launch Follower
 tmux new-session -d -s nock-follower "cd $PROJECT_DIR && ./target/release/nockchain \
   --fakenet \
+  --mine \
   --mining-pubkey $PUBKEY \
   --npc-socket nockchain.sock \
   --bind /ip4/0.0.0.0/udp/$FOLLOWER_PORT/quic-v1 \
   --peer /ip4/127.0.0.1/udp/$LEADER_PORT/quic-v1 \
   --new-peer-id \
   --no-default-peers | tee follower.log"
-
-echo ""
-echo "✅ Nockchain DevNet Miner is running with your wallet public key."
-echo "   - tmux session (leader):   tmux attach -t nock-leader"
-echo "   - tmux session (follower): tmux attach -t nock-follower"
-echo "   - wallet: $PUBKEY"
-echo ""
